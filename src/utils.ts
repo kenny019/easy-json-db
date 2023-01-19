@@ -1,2 +1,5 @@
+import path from 'path';
+
 export * as fs from 'fs';
-export * as crypto from 'crypto';
+export { Ok, Err, Result } from 'ts-results';
+export { path };
