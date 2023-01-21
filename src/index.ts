@@ -98,8 +98,17 @@ export class DBClient {
 	insert = (
 		collectionName: string,
 		key: string,
-		storageObject: Record<string, any>,
+		storageObject: Record<string, any> | Record<string, any>[],
 	): Result<boolean, 'Failed to insert' | string> => {
+		if (Array.isArray(storageObject)) {
+			storageObject.forEach((obj) => {
+				Object.assign(this.collectionStore[collectionName][key], obj);
+			});
+
+			this.writeFileStore(collectionName);
+			return;
+		}
+
 		if (this.collectionStore[collectionName][key]) {
 			return new Err('Failed to insert, key already has data. Use the replace method instead.');
 		}
