@@ -18,6 +18,38 @@ export class DBClient {
 		DBClient._instance = this;
 	}
 
+	private populateAllCollections = () => {
+		if (!this.collectionStore) this.collectionStore = {};
+
+		const dbFiles = fs.readdirSync(this.databasePath);
+
+		dbFiles.forEach((fileName) => {
+			if (fileName.slice(fileName.length - 4, fileName.length) !== 'json') {
+				return;
+			}
+
+			this.getCollection(fileName.slice(0, fileName.length - 5), true);
+		});
+	};
+
+	private writeFileStore = (collectionName?: string) => {
+		if (collectionName) {
+			fs.writeFileSync(
+				`${this.databasePath}/${collectionName}.json`,
+				JSON.stringify(this.collectionStore[collectionName]),
+			);
+			return;
+		}
+
+		Object.keys(this.collectionStore).forEach((collectionName) => {
+			if (!this.collectionStore[collectionName]) return;
+			fs.writeFileSync(
+				`${this.databasePath}/${collectionName}.json`,
+				JSON.stringify(this.collectionStore[collectionName], null),
+			);
+		});
+	};
+
 	getCollection = (
 		collectionName: string,
 		force?: boolean,
@@ -45,20 +77,6 @@ export class DBClient {
 		return new Ok(this.collectionStore[collectionName]);
 	};
 
-	private populateAllCollections = () => {
-		if (!this.collectionStore) this.collectionStore = {};
-
-		const dbFiles = fs.readdirSync(this.databasePath);
-
-		dbFiles.forEach((fileName) => {
-			if (fileName.slice(fileName.length - 4, fileName.length) !== 'json') {
-				return;
-			}
-
-			this.getCollection(fileName.slice(0, fileName.length - 5), true);
-		});
-	};
-
 	get = (
 		collectionName: string,
 		lookupValue: string | Record<string, any>,
@@ -75,5 +93,20 @@ export class DBClient {
 		}, {});
 
 		return new Ok(lookupData);
+	};
+
+	insert = (
+		collectionName: string,
+		key: string,
+		storageObject: Record<string, any>,
+	): Result<boolean, 'Failed to insert' | string> => {
+		if (this.collectionStore[collectionName][key]) {
+			return new Err('Failed to insert, key already has data. Use the replace method instead.');
+		}
+
+		Object.assign(this.collectionStore[collectionName], storageObject);
+
+		this.writeFileStore(collectionName);
+		return new Ok(true);
 	};
 }
