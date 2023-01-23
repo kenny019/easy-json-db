@@ -1,4 +1,4 @@
-import { fs, Ok, Err, Result, Option, Some, None, path } from './utils';
+import { fs, Ok, Err, Result, Option, Some, None, path, isDeepStrictEqual } from './utils';
 
 type document = Record<string, any>;
 type collectionStore = Record<string, document>;
@@ -64,22 +64,37 @@ export class DBClient {
 		});
 	};
 
+	private initialiseCollection = (collectionName: string) => {
+		if (this.collectionStore[collectionName]) return;
+
+		const collectionExists = fs.existsSync(`${this.databasePath}/${collectionName}.json`);
+
+		if (collectionExists) return;
+
+		this.collectionStore[collectionName] = {};
+		fs.writeFileSync(`${this.databasePath}/${collectionName}.json`, '{}');
+	};
+
 	private lookupCollectionData = (
 		collectionName: string,
 		lookupValue: string | document,
-	): Result<lookupResult, 'Failed to lookup' | string> => {
+	): Result<lookupResult | lookupResult[], 'Failed to lookup' | string> => {
+		if (!collectionName) {
+			return new Err('collectionName should be a string.');
+		}
+
 		if (typeof lookupValue === 'string') {
 			return new Ok(this.collectionStore[collectionName][lookupValue] ? lookupValue : '');
 		}
 
 		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
 
-		const lookupResult = Object.keys(this.collectionStore[collectionName]).reduce((acc, key) => {
-			if (lookupValue[key] && lookupValue[key] === this.collectionStore[collectionName][key]) {
-				acc = key;
+		const lookupResult = Object.keys(this.collectionStore[collectionName]).reduce<string[]>((acc, key) => {
+			if (isDeepStrictEqual(lookupValue, this.collectionStore[collectionName][key])) {
+				acc.push(key);
 			}
 			return acc;
-		}, '');
+		}, []);
 
 		return new Ok(lookupResult);
 	};
@@ -91,6 +106,7 @@ export class DBClient {
 		if (!collectionName) {
 			return new Err('getCollection expects name argument');
 		}
+		this.initialiseCollection(collectionName);
 
 		if (force || !this.collectionStore) {
 			const fileExists = fs.existsSync(`${this.databasePath}/${collectionName}.json`);
@@ -108,10 +124,19 @@ export class DBClient {
 		return new Ok(this.collectionStore[collectionName]);
 	};
 
-	get = (collectionName: string, lookupValue: string | document): Option<document> => {
+	get = (collectionName: string, lookupValue: string | document): Option<document | document[]> => {
+		this.initialiseCollection(collectionName);
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (foundKey.ok) {
+			if (Array.isArray(foundKey.val)) {
+				return Some(
+					foundKey.val.map((key) => {
+						return this.collectionStore[collectionName][key];
+					}),
+				);
+			}
+
 			return Some(this.collectionStore[collectionName][foundKey.val]);
 		}
 
@@ -123,6 +148,8 @@ export class DBClient {
 		key: string,
 		data: document | document[],
 	): Result<boolean, 'Failed to insert' | string> => {
+		this.initialiseCollection(collectionName);
+
 		if (Array.isArray(data)) {
 			data.forEach((obj) => {
 				Object.assign(this.collectionStore[collectionName][key], obj);
@@ -147,30 +174,46 @@ export class DBClient {
 		collectionName: string,
 		lookupValue: string | document,
 		data: document,
-	): Result<document, 'Failed to update' | string> => {
+	): Result<document | document[], 'Failed to update' | string> => {
+		this.initialiseCollection(collectionName);
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (!foundKey.ok) return new Err(foundKey.val);
 
 		if (!foundKey.val) return new Err('Failed to update, key does not exist. Use the insert method instead.');
 
-		Object.assign(this.collectionStore[collectionName][foundKey.val], data);
+		let output: document | document[];
+
+		if (Array.isArray(foundKey.val)) {
+			output = foundKey.val.map((key) => {
+				return Object.assign(this.collectionStore[collectionName][key], data);
+			});
+		} else {
+			output = Object.assign(this.collectionStore[collectionName][foundKey.val], data);
+		}
 
 		this.writeFileStore(collectionName);
-		return new Ok(this.collectionStore[collectionName][foundKey.val]);
+		return new Ok(output);
 	};
 
 	remove = (
 		collectionName: string,
 		lookupValue: string | document,
 	): Result<boolean, 'Failed to remove, value does not exist' | string> => {
+		this.initialiseCollection(collectionName);
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (!foundKey.ok) return new Err(foundKey.val);
 
 		if (!foundKey.val) return new Ok(false);
 
-		delete this.collectionStore[collectionName][foundKey.val];
+		if (Array.isArray(foundKey.val)) {
+			foundKey.val.forEach((key) => {
+				delete this.collectionStore[collectionName][key];
+			});
+		} else {
+			delete this.collectionStore[collectionName][foundKey.val];
+		}
 
 		this.writeFileStore(collectionName);
 		return new Ok(true);
@@ -179,17 +222,27 @@ export class DBClient {
 	replace = (
 		collectionName: string,
 		lookupValue: string | document,
-		data: document,
+		data: document | document[],
 	): Result<document, 'Failed to update' | string> => {
+		this.initialiseCollection(collectionName);
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (!foundKey.ok) return new Err(foundKey.val);
 
 		if (!foundKey.val) return new Err('Failed to replace, key does not exist. Use the insert method instead.');
 
-		this.collectionStore[collectionName][foundKey.val] = data;
+		let output: document | document[];
+
+		if (Array.isArray(foundKey.val)) {
+			output = foundKey.val.map((key) => {
+				return (this.collectionStore[collectionName][key] = data);
+			});
+		} else {
+			this.collectionStore[collectionName][foundKey.val] = data;
+			output = data;
+		}
 
 		this.writeFileStore(collectionName);
-		return new Ok(this.collectionStore[collectionName][foundKey.val]);
+		return new Ok(output);
 	};
 }
