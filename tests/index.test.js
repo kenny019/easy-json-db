@@ -70,4 +70,19 @@ describe('DBClient', () => {
 			expect(userData.none).toBeTruthy;
 		});
 	});
+
+	describe('Testing insert method', () => {
+		test('insert a document', () => {
+			const db = new DBClient(TEST_DB);
+
+			const result = db.insert('users', 'test_user', {
+				age: 49,
+				gender: 'female',
+			});
+
+			expect(result.ok).toBeTruthy;
+
+			expect(result.val).toBeTruthy;
+		});
+	});
 });
