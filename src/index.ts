@@ -118,4 +118,40 @@ export class DBClient {
 		this.writeFileStore(collectionName);
 		return new Ok(true);
 	};
+
+	update = (
+		collectionName: string,
+		key: string,
+		storageObject: Record<string, any>,
+	): Result<Record<string, any>, 'Failed to update' | string> => {
+		if (!this.collectionStore[collectionName][key])
+			return new Err('Failed to update, key does not exist. Use the insert method instead.');
+
+		Object.assign(this.collectionStore[key], storageObject);
+
+		this.writeFileStore(collectionName);
+		return new Ok(this.collectionStore[key]);
+	};
+
+	remove = (
+		collectionName: string,
+		lookupValue: string | Record<string, any>,
+	): Result<boolean, 'Failed to remove' | string> => {
+		if (typeof lookupValue === 'string') {
+			delete this.collectionStore[collectionName][lookupValue];
+			return new Ok(true);
+		}
+
+		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
+
+		const deleteResult = Object.keys(this.collectionStore[collectionName]).reduce((acc, key) => {
+			if (lookupValue[key] && lookupValue[key] === this.collectionStore[collectionName][key]) {
+				delete this.collectionStore[collectionName][key];
+				acc = true;
+			}
+			return acc;
+		}, false);
+
+		return new Ok(deleteResult);
+	};
 }
