@@ -1,6 +1,8 @@
-import { fs, Ok, Err, Result, path } from './utils';
+import { fs, Ok, Err, Result, Option, Some, None, path } from './utils';
 
 type collectionStore = Partial<Record<string, object>>;
+
+type lookupResult = string;
 
 export class DBClient {
 	private static _instance: DBClient;
@@ -50,6 +52,26 @@ export class DBClient {
 		});
 	};
 
+	private lookupCollectionData = (
+		collectionName: string,
+		lookupValue: string | Record<string, any>,
+	): Result<lookupResult, 'Failed to lookup' | string> => {
+		if (typeof lookupValue === 'string') {
+			return new Ok(this.collectionStore[collectionName][lookupValue]);
+		}
+
+		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
+
+		const lookupResult = Object.keys(this.collectionStore[collectionName]).reduce((acc, key) => {
+			if (lookupValue[key] && lookupValue[key] === this.collectionStore[collectionName][key]) {
+				acc = key;
+			}
+			return acc;
+		}, '');
+
+		return new Ok(lookupResult);
+	};
+
 	getCollection = (
 		collectionName: string,
 		force?: boolean,
@@ -77,22 +99,14 @@ export class DBClient {
 		return new Ok(this.collectionStore[collectionName]);
 	};
 
-	get = (
-		collectionName: string,
-		lookupValue: string | Record<string, any>,
-	): Result<object, string | 'Document not found'> => {
-		if (typeof lookupValue === 'string') return new Ok(this.collectionStore[collectionName][lookupValue] || {});
+	get = (collectionName: string, lookupValue: string | Record<string, any>): Option<Record<string, any>> => {
+		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
-		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
+		if (foundKey.ok) {
+			return Some(this.collectionStore[collectionName][foundKey.val]);
+		}
 
-		const lookupData = Object.keys(this.collectionStore[collectionName]).reduce((acc, key) => {
-			if (lookupValue[key] && lookupValue[key] === this.collectionStore[collectionName][key]) {
-				acc = lookupValue[key];
-			}
-			return acc;
-		}, {});
-
-		return new Ok(lookupData);
+		return None;
 	};
 
 	insert = (
@@ -121,52 +135,51 @@ export class DBClient {
 
 	update = (
 		collectionName: string,
-		key: string,
+		lookupValue: string | Record<string, any>,
 		storageObject: Record<string, any>,
 	): Result<Record<string, any>, 'Failed to update' | string> => {
-		if (!this.collectionStore[collectionName][key])
-			return new Err('Failed to update, key does not exist. Use the insert method instead.');
+		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
-		Object.assign(this.collectionStore[key], storageObject);
+		if (!foundKey.ok) return new Err(foundKey.val);
+
+		if (!foundKey.val) return new Err('Failed to update, key does not exist. Use the insert method instead.');
+
+		Object.assign(this.collectionStore[collectionName][foundKey.val], storageObject);
 
 		this.writeFileStore(collectionName);
-		return new Ok(this.collectionStore[key]);
+		return new Ok(this.collectionStore[collectionName][foundKey.val]);
 	};
 
 	remove = (
 		collectionName: string,
 		lookupValue: string | Record<string, any>,
-	): Result<boolean, 'Failed to remove' | string> => {
-		if (typeof lookupValue === 'string') {
-			delete this.collectionStore[collectionName][lookupValue];
-			return new Ok(true);
-		}
+	): Result<boolean, 'Failed to remove, value does not exist' | string> => {
+		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
-		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
+		if (!foundKey.ok) return new Err(foundKey.val);
 
-		const deleteResult = Object.keys(this.collectionStore[collectionName]).reduce((acc, key) => {
-			if (lookupValue[key] && lookupValue[key] === this.collectionStore[collectionName][key]) {
-				delete this.collectionStore[collectionName][key];
-				acc = true;
-			}
-			return acc;
-		}, false);
+		if (!foundKey.val) return new Ok(false);
+
+		delete this.collectionStore[collectionName][foundKey.val];
 
 		this.writeFileStore(collectionName);
-		return new Ok(deleteResult);
+		return new Ok(true);
 	};
 
 	replace = (
 		collectionName: string,
-		key: string,
+		lookupValue: string | Record<string, any>,
 		storageObject: Record<string, any>,
-	): Result<Record<string, any>, 'Failed to replace' | string> => {
-		if (!this.collectionStore[collectionName][key])
-			return new Err('Failed to replace, key does not exist. Use the insert method instead.');
+	): Result<Record<string, any>, 'Failed to update' | string> => {
+		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
-		this.collectionStore[collectionName][key] = storageObject;
+		if (!foundKey.ok) return new Err(foundKey.val);
+
+		if (!foundKey.val) return new Err('Failed to replace, key does not exist. Use the insert method instead.');
+
+		this.collectionStore[collectionName][foundKey.val] = storageObject;
 
 		this.writeFileStore(collectionName);
-		return new Ok({});
+		return new Ok(this.collectionStore[collectionName][foundKey.val]);
 	};
 }
