@@ -10,18 +10,26 @@ export class DBClient {
 	collectionStore: collectionStore;
 
 	constructor(databasePath?: string) {
-		this.databasePath = databasePath || './db';
-		if (DBClient._instance) {
-			return DBClient._instance;
+		databasePath = databasePath ? path.format(path.parse(databasePath)) : './db';
+		if (!DBClient._instance || (DBClient._instance && DBClient._instance.databasePath !== databasePath)) {
+			this.databasePath = databasePath;
+
+			this.populateAllCollections();
+
+			DBClient._instance = this;
 		}
 
-		this.populateAllCollections();
-
-		DBClient._instance = this;
+		return DBClient._instance;
 	}
 
 	private populateAllCollections = () => {
 		if (!this.collectionStore) this.collectionStore = {};
+
+		const directoryExists = fs.existsSync(this.databasePath);
+
+		if (!directoryExists) {
+			fs.mkdirSync(this.databasePath);
+		}
 
 		const dbFiles = fs.readdirSync(this.databasePath);
 
@@ -81,18 +89,15 @@ export class DBClient {
 		}
 
 		if (force || !this.collectionStore) {
-			const fileExists = fs.existsSync(`${path.parse(this.databasePath)}/${collectionName}.json`);
+			const fileExists = fs.existsSync(`${this.databasePath}/${collectionName}.json`);
 
 			if (!fileExists) {
 				return new Err(`Collection ${collectionName} was not found`);
 			}
 
-			const fileBuffer = fs.readFileSync(`${path.parse(this.databasePath)}/${collectionName}.json`);
+			const fileBuffer = fs.readFileSync(`${this.databasePath}/${collectionName}.json`);
 
-			const collectionData: collectionStore = JSON.parse(fileBuffer.toString()).catch((error: SyntaxError) => {
-				return new Err(`JSON parse failed: ${error.message}`);
-			});
-
+			const collectionData: collectionStore = JSON.parse(fileBuffer.toString());
 			this.collectionStore[collectionName] = collectionData;
 		}
 
@@ -127,9 +132,10 @@ export class DBClient {
 			return new Err('Failed to insert, key already has data. Use the replace method instead.');
 		}
 
-		Object.assign(this.collectionStore[collectionName], storageObject);
+		Object.assign(this.collectionStore[collectionName], { [key]: storageObject });
 
 		this.writeFileStore(collectionName);
+
 		return new Ok(true);
 	};
 
