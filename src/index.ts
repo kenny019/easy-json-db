@@ -1,7 +1,7 @@
 import { fs, Ok, Err, Result, Option, Some, None, path } from './utils';
 
-type collectionStore = Partial<Record<string, object>>;
 type document = Record<string, any>;
+type collectionStore = Record<string, document>;
 
 type lookupResult = string;
 
@@ -11,6 +11,9 @@ export class DBClient {
 	collectionStore: collectionStore;
 
 	constructor(databasePath?: string) {
+		this.databasePath = '';
+		this.collectionStore = {};
+
 		databasePath = databasePath ? path.format(path.parse(databasePath)) : './db';
 		if (!DBClient._instance || (DBClient._instance && DBClient._instance.databasePath !== databasePath)) {
 			this.databasePath = databasePath;
@@ -66,7 +69,7 @@ export class DBClient {
 		lookupValue: string | document,
 	): Result<lookupResult, 'Failed to lookup' | string> => {
 		if (typeof lookupValue === 'string') {
-			return new Ok(this.collectionStore[collectionName][lookupValue]);
+			return new Ok(this.collectionStore[collectionName][lookupValue] ? lookupValue : '');
 		}
 
 		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
@@ -126,7 +129,7 @@ export class DBClient {
 			});
 
 			this.writeFileStore(collectionName);
-			return;
+			return new Ok(true);
 		}
 
 		if (this.collectionStore[collectionName][key]) {
