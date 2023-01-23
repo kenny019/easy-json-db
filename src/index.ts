@@ -1,6 +1,7 @@
 import { fs, Ok, Err, Result, Option, Some, None, path } from './utils';
 
 type collectionStore = Partial<Record<string, object>>;
+type document = Record<string, any>;
 
 type lookupResult = string;
 
@@ -62,7 +63,7 @@ export class DBClient {
 
 	private lookupCollectionData = (
 		collectionName: string,
-		lookupValue: string | Record<string, any>,
+		lookupValue: string | document,
 	): Result<lookupResult, 'Failed to lookup' | string> => {
 		if (typeof lookupValue === 'string') {
 			return new Ok(this.collectionStore[collectionName][lookupValue]);
@@ -104,7 +105,7 @@ export class DBClient {
 		return new Ok(this.collectionStore[collectionName]);
 	};
 
-	get = (collectionName: string, lookupValue: string | Record<string, any>): Option<Record<string, any>> => {
+	get = (collectionName: string, lookupValue: string | document): Option<document> => {
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (foundKey.ok) {
@@ -117,10 +118,10 @@ export class DBClient {
 	insert = (
 		collectionName: string,
 		key: string,
-		storageObject: Record<string, any> | Record<string, any>[],
+		data: document | document[],
 	): Result<boolean, 'Failed to insert' | string> => {
-		if (Array.isArray(storageObject)) {
-			storageObject.forEach((obj) => {
+		if (Array.isArray(data)) {
+			data.forEach((obj) => {
 				Object.assign(this.collectionStore[collectionName][key], obj);
 			});
 
@@ -132,7 +133,7 @@ export class DBClient {
 			return new Err('Failed to insert, key already has data. Use the replace method instead.');
 		}
 
-		Object.assign(this.collectionStore[collectionName], { [key]: storageObject });
+		Object.assign(this.collectionStore[collectionName], { [key]: data });
 
 		this.writeFileStore(collectionName);
 
@@ -141,16 +142,16 @@ export class DBClient {
 
 	update = (
 		collectionName: string,
-		lookupValue: string | Record<string, any>,
-		storageObject: Record<string, any>,
-	): Result<Record<string, any>, 'Failed to update' | string> => {
+		lookupValue: string | document,
+		data: document,
+	): Result<document, 'Failed to update' | string> => {
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (!foundKey.ok) return new Err(foundKey.val);
 
 		if (!foundKey.val) return new Err('Failed to update, key does not exist. Use the insert method instead.');
 
-		Object.assign(this.collectionStore[collectionName][foundKey.val], storageObject);
+		Object.assign(this.collectionStore[collectionName][foundKey.val], data);
 
 		this.writeFileStore(collectionName);
 		return new Ok(this.collectionStore[collectionName][foundKey.val]);
@@ -158,7 +159,7 @@ export class DBClient {
 
 	remove = (
 		collectionName: string,
-		lookupValue: string | Record<string, any>,
+		lookupValue: string | document,
 	): Result<boolean, 'Failed to remove, value does not exist' | string> => {
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
@@ -174,16 +175,16 @@ export class DBClient {
 
 	replace = (
 		collectionName: string,
-		lookupValue: string | Record<string, any>,
-		storageObject: Record<string, any>,
-	): Result<Record<string, any>, 'Failed to update' | string> => {
+		lookupValue: string | document,
+		data: document,
+	): Result<document, 'Failed to update' | string> => {
 		const foundKey = this.lookupCollectionData(collectionName, lookupValue);
 
 		if (!foundKey.ok) return new Err(foundKey.val);
 
 		if (!foundKey.val) return new Err('Failed to replace, key does not exist. Use the insert method instead.');
 
-		this.collectionStore[collectionName][foundKey.val] = storageObject;
+		this.collectionStore[collectionName][foundKey.val] = data;
 
 		this.writeFileStore(collectionName);
 		return new Ok(this.collectionStore[collectionName][foundKey.val]);
