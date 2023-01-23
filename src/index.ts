@@ -152,6 +152,21 @@ export class DBClient {
 			return acc;
 		}, false);
 
+		this.writeFileStore(collectionName);
 		return new Ok(deleteResult);
+	};
+
+	replace = (
+		collectionName: string,
+		key: string,
+		storageObject: Record<string, any>,
+	): Result<Record<string, any>, 'Failed to replace' | string> => {
+		if (!this.collectionStore[collectionName][key])
+			return new Err('Failed to replace, key does not exist. Use the insert method instead.');
+
+		this.collectionStore[collectionName][key] = storageObject;
+
+		this.writeFileStore(collectionName);
+		return new Ok({});
 	};
 }
