@@ -55,11 +55,11 @@ export class DBClient {
 			return;
 		}
 
-		Object.keys(this.collectionStore).forEach((collectionName) => {
-			if (!this.collectionStore[collectionName]) return;
+		Object.keys(this.collectionStore).forEach((collectionKey) => {
+			if (!this.collectionStore[collectionKey]) return;
 			fs.writeFileSync(
 				`${this.databasePath}/${collectionName}.json`,
-				JSON.stringify(this.collectionStore[collectionName], null),
+				JSON.stringify(this.collectionStore[collectionKey], null),
 			);
 		});
 	};
@@ -89,14 +89,14 @@ export class DBClient {
 
 		if (typeof lookupValue !== 'object') return new Err('lookupValue should be a string or an object.');
 
-		const lookupResult = Object.keys(this.collectionStore[collectionName]).reduce<string[]>((acc, key) => {
+		const output = Object.keys(this.collectionStore[collectionName]).reduce<string[]>((acc, key) => {
 			if (isDeepStrictEqual(lookupValue, this.collectionStore[collectionName][key])) {
 				acc.push(key);
 			}
 			return acc;
 		}, []);
 
-		return new Ok(lookupResult);
+		return new Ok(output);
 	};
 
 	getCollection = (
