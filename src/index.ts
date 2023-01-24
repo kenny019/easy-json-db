@@ -65,6 +65,10 @@ export class DBClient {
 	};
 
 	private initialiseCollection = (collectionName: string) => {
+		if (!collectionName || collectionName.length < 1) {
+			collectionName = 'db';
+		}
+
 		if (this.collectionStore[collectionName]) return;
 
 		const collectionExists = fs.existsSync(`${this.databasePath}/${collectionName}.json`);
@@ -80,7 +84,7 @@ export class DBClient {
 		lookupValue: string | document,
 	): Result<lookupResult | lookupResult[], 'Failed to lookup' | string> => {
 		if (!collectionName) {
-			return new Err('collectionName should be a string.');
+			return new Err('collectionName should be a string with more than one character.');
 		}
 
 		if (typeof lookupValue === 'string') {
