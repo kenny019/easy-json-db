@@ -1,1 +1,1 @@
-{"kenny":{"age":22,"gender":"male"},"new_user":{"age":33,"gender":"male"},"test_user":{"age":49,"gender":"female"}}
+{"kenny":{"age":22,"gender":"male"},"test_user2":{"rules":{"admin":true}},"test_user3":{"rules":{"admin":false}},"test_user4":{}}
