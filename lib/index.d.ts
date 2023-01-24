@@ -6,7 +6,7 @@ declare class DBClient {
     databasePath: string;
     collectionStore: collectionStore;
     writeQueue: Set<string>;
-    constructor(databasePath?: string);
+    constructor(databasePath?: string, interval?: number);
     private populateAllCollections;
     private writeFileStore;
     private initialiseCollection;

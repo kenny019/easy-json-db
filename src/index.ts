@@ -1,4 +1,4 @@
-import { fs, Ok, Err, Result, Option, Some, None, path, isDeepStrictEqual, EventEmitter } from './utils';
+import { fs, Ok, Err, Result, Option, Some, None, path, isDeepStrictEqual } from './utils';
 
 type document = Record<string, any>;
 type collectionStore = Record<string, document>;
@@ -11,7 +11,7 @@ class DBClient {
 	collectionStore: collectionStore;
 	writeQueue: Set<string>;
 
-	constructor(databasePath?: string) {
+	constructor(databasePath?: string, interval?: number) {
 		this.databasePath = '';
 		this.collectionStore = {};
 		this.writeQueue = new Set();
@@ -25,7 +25,7 @@ class DBClient {
 			DBClient._instance = this;
 		}
 
-		this.writeThread();
+		this.writeThread(interval);
 		return DBClient._instance;
 	}
 
