@@ -1,7 +1,7 @@
 import { Result, Option } from './utils';
 type document = Record<string, any>;
 type collectionStore = Record<string, document>;
-export declare class DBClient {
+declare class DBClient {
     private static _instance;
     databasePath: string;
     collectionStore: collectionStore;
@@ -17,4 +17,4 @@ export declare class DBClient {
     remove: (collectionName: string, lookupValue: string | document) => Result<boolean, 'Failed to remove, value does not exist' | string>;
     replace: (collectionName: string, lookupValue: string | document, data: document | document[]) => Result<document, 'Failed to update' | string>;
 }
-export {};
+export = DBClient;

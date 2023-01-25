@@ -5,7 +5,7 @@ type collectionStore = Record<string, document>;
 
 type lookupResult = string;
 
-export class DBClient {
+class DBClient {
 	private static _instance: DBClient;
 	databasePath: string;
 	collectionStore: collectionStore;
@@ -250,3 +250,5 @@ export class DBClient {
 		return new Ok(output);
 	};
 }
+
+export = DBClient;

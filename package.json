@@ -3,13 +3,13 @@
 	"version": "0.0.1",
 	"description": "json file storage database",
 	"main": "index.ts",
+	"type": "commonjs",
 	"scripts": {
 		"build": "tsc",
 		"watch": "tsc --watch",
 		"format": "prettier --write \"src/**/*.ts\" \"src/**/*.ts\"",
 		"lint": "tslint -p tsconfig.json",
-		"test": "vitest",
-		"prepack": "npm run clean && npm run build"
+		"test": "vitest"
 	},
 	"author": "",
 	"license": "ISC",

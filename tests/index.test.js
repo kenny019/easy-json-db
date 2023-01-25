@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 
-import { DBClient } from '../lib';
+import DBClient from '../lib';
 
 const TEST_DB = './tests/db';
 
