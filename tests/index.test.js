@@ -69,6 +69,14 @@ describe('DBClient', () => {
 			expect(userData.some).toBeFalsy;
 			expect(userData.none).toBeTruthy;
 		});
+
+		test('call getCollection', () => {
+			const db = new DBClient(TEST_DB);
+
+			const userCollection = db.getCollection('users');
+
+			expect(userCollection.ok).toBeTruthy;
+		});
 	});
 
 	describe('Testing insert method', () => {
