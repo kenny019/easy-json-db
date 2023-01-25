@@ -5,9 +5,11 @@
 	"main": "index.ts",
 	"scripts": {
 		"build": "tsc",
+		"watch": "tsc --watch",
 		"format": "prettier --write \"src/**/*.ts\" \"src/**/*.ts\"",
 		"lint": "tslint -p tsconfig.json",
-		"test": "vitest"
+		"test": "vitest",
+		"prepack": "npm run clean && npm run build"
 	},
 	"author": "",
 	"license": "ISC",
