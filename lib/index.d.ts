@@ -9,6 +9,7 @@ declare class DBClient {
     constructor(databasePath?: string, interval?: number);
     private populateAllCollections;
     private writeFileStore;
+    private writeAllFileStore;
     private initialiseCollection;
     private lookupCollectionData;
     private writeThread;

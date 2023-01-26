@@ -2,7 +2,6 @@ import { fs, Ok, Err, Result, Option, Some, None, path, isDeepStrictEqual } from
 
 type document = Record<string, any>;
 type collectionStore = Record<string, document>;
-
 type lookupResult = string;
 
 class DBClient {
@@ -25,7 +24,7 @@ class DBClient {
 			DBClient._instance = this;
 		}
 
-		this.writeThread(interval);
+		setTimeout(() => this.writeThread(interval), interval);
 		return DBClient._instance;
 	}
 
@@ -49,20 +48,26 @@ class DBClient {
 		});
 	};
 
-	private writeFileStore = (collectionName?: string) => {
-		if (collectionName) {
-			fs.writeFileSync(
-				`${this.databasePath}/${collectionName}.json`,
-				JSON.stringify(this.collectionStore[collectionName]),
-			);
-			return;
-		}
+	private writeFileStore = (collectionName: string): Promise<[result: boolean, error: unknown]> => {
+		return new Promise((res, rej) => {
+			const filePath = `${this.databasePath}/${collectionName}.json`;
 
-		Object.keys(this.collectionStore).forEach((collectionKey) => {
-			if (!this.collectionStore[collectionKey]) return;
+			if (!collectionName) return res([false, Error('Missing collectionName')]);
+
+			if (collectionName) {
+				fs.writeFile(filePath, JSON.stringify(this.collectionStore[collectionName] || {}), (err) => {
+					return res([true, {}]);
+				});
+			}
+		});
+	};
+
+	private writeAllFileStore = () => {
+		Object.keys(this.collectionStore).forEach((collectionName) => {
+			if (!this.collectionStore[collectionName]) return;
 			fs.writeFileSync(
 				`${this.databasePath}/${collectionName}.json`,
-				JSON.stringify(this.collectionStore[collectionKey], null),
+				JSON.stringify(this.collectionStore[collectionName], null),
 			);
 		});
 	};
@@ -74,12 +79,21 @@ class DBClient {
 
 		if (this.collectionStore[collectionName]) return;
 
-		const collectionExists = fs.existsSync(`${this.databasePath}/${collectionName}.json`);
+		const pathName = `${this.databasePath}/${collectionName}.json`;
+		const collectionExists = fs.existsSync(pathName);
 
-		if (collectionExists) return;
+		if (!collectionExists) {
+			this.collectionStore[collectionName] = {};
+			fs.writeFileSync(pathName, '{}');
+			return;
+		}
 
-		this.collectionStore[collectionName] = {};
-		fs.writeFileSync(`${this.databasePath}/${collectionName}.json`, '{}');
+		const stats = fs.statSync(pathName);
+		if (stats.size < 1) {
+			this.collectionStore[collectionName] = {};
+			fs.writeFileSync(pathName, '{}');
+			return;
+		}
 	};
 
 	private lookupCollectionData = (
@@ -107,16 +121,19 @@ class DBClient {
 	};
 
 	private writeThread = (interval: number = 2000) => {
-		setInterval(() => {
-			this.writeQueue.forEach((collectionName) => {
-				try {
-					this.writeFileStore(collectionName);
-					this.writeQueue.delete(collectionName);
-				} catch (err) {
-					throw err;
-				}
-			});
-		}, interval);
+		const writeQueue: Promise<[result: boolean, error: unknown]>[] = [];
+
+		this.writeQueue.forEach((collectionName) => {
+			writeQueue.push(this.writeFileStore(collectionName));
+		});
+
+		Promise.all(writeQueue).then(() => {
+			console.log('all done');
+			console.log(this.writeQueue);
+			this.writeQueue.clear();
+			setTimeout(() => this.writeThread(interval), interval);
+			console.log('next call succesfully enqued');
+		});
 	};
 
 	getCollection = (
@@ -128,14 +145,15 @@ class DBClient {
 		}
 		this.initialiseCollection(collectionName);
 
+		const pathName = `${this.databasePath}/${collectionName}.json`;
 		if (force || !this.collectionStore) {
-			const fileExists = fs.existsSync(`${this.databasePath}/${collectionName}.json`);
+			const fileExists = fs.existsSync(pathName);
 
 			if (!fileExists) {
 				return new Err(`Collection ${collectionName} was not found`);
 			}
 
-			const fileBuffer = fs.readFileSync(`${this.databasePath}/${collectionName}.json`);
+			const fileBuffer = fs.readFileSync(pathName);
 
 			const collectionData: collectionStore = JSON.parse(fileBuffer.toString());
 			this.collectionStore[collectionName] = collectionData;
@@ -197,6 +215,8 @@ class DBClient {
 		} else {
 			output = Object.assign(this.collectionStore[collectionName][foundKey.val], data);
 		}
+
+		console.log(output);
 
 		this.writeQueue.add(collectionName);
 		return new Ok(output);
