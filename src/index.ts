@@ -9,10 +9,12 @@ class DBClient {
 	private static _instance: DBClient;
 	databasePath: string;
 	collectionStore: collectionStore;
+	writeQueue: Set<string>;
 
-	constructor(databasePath?: string) {
+	constructor(databasePath?: string, interval?: number) {
 		this.databasePath = '';
 		this.collectionStore = {};
+		this.writeQueue = new Set();
 
 		databasePath = databasePath ? path.format(path.parse(databasePath)) : './db';
 		if (!DBClient._instance || (DBClient._instance && DBClient._instance.databasePath !== databasePath)) {
@@ -23,6 +25,7 @@ class DBClient {
 			DBClient._instance = this;
 		}
 
+		this.writeThread(interval);
 		return DBClient._instance;
 	}
 
@@ -103,6 +106,19 @@ class DBClient {
 		return new Ok(output);
 	};
 
+	private writeThread = (interval: number = 2000) => {
+		setInterval(() => {
+			this.writeQueue.forEach((collectionName) => {
+				try {
+					this.writeFileStore(collectionName);
+					this.writeQueue.delete(collectionName);
+				} catch (err) {
+					throw err;
+				}
+			});
+		}, interval);
+	};
+
 	getCollection = (
 		collectionName: string,
 		force?: boolean,
@@ -147,21 +163,8 @@ class DBClient {
 		return None;
 	};
 
-	insert = (
-		collectionName: string,
-		key: string,
-		data: document | document[],
-	): Result<boolean, 'Failed to insert' | string> => {
+	insert = (collectionName: string, key: string, data: document): Result<boolean, 'Failed to insert' | string> => {
 		this.initialiseCollection(collectionName);
-
-		if (Array.isArray(data)) {
-			data.forEach((obj) => {
-				Object.assign(this.collectionStore[collectionName][key], obj);
-			});
-
-			this.writeFileStore(collectionName);
-			return new Ok(true);
-		}
 
 		if (this.collectionStore[collectionName][key]) {
 			return new Err('Failed to insert, key already has data. Use the replace method instead.');
@@ -169,8 +172,7 @@ class DBClient {
 
 		Object.assign(this.collectionStore[collectionName], { [key]: data });
 
-		this.writeFileStore(collectionName);
-
+		this.writeQueue.add(collectionName);
 		return new Ok(true);
 	};
 
@@ -196,7 +198,7 @@ class DBClient {
 			output = Object.assign(this.collectionStore[collectionName][foundKey.val], data);
 		}
 
-		this.writeFileStore(collectionName);
+		this.writeQueue.add(collectionName);
 		return new Ok(output);
 	};
 
@@ -219,7 +221,7 @@ class DBClient {
 			delete this.collectionStore[collectionName][foundKey.val];
 		}
 
-		this.writeFileStore(collectionName);
+		this.writeQueue.add(collectionName);
 		return new Ok(true);
 	};
 
@@ -246,7 +248,7 @@ class DBClient {
 			output = data;
 		}
 
-		this.writeFileStore(collectionName);
+		this.writeQueue.add(collectionName);
 		return new Ok(output);
 	};
 }

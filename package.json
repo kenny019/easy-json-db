@@ -9,6 +9,7 @@
 		"watch": "tsc --watch",
 		"format": "prettier --write \"src/**/*.ts\" \"src/**/*.ts\"",
 		"lint": "tslint -p tsconfig.json",
+		"bench": "vitest bench",
 		"test": "vitest"
 	},
 	"author": "",
