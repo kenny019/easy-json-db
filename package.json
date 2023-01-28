@@ -1,8 +1,9 @@
 {
 	"name": "easy-json-db",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "json file storage database",
-	"main": "index.js",
+	"main": "lib/index.js",
+	"types": "lib/index.d.ts",
 	"type": "commonjs",
 	"scripts": {
 		"build": "tsc",
@@ -27,7 +28,8 @@
 	],
 	"dependencies": {
 		"chokidar": "^3.5.3",
-		"ts-results": "^3.3.0"
+		"ts-results": "^3.3.0",
+		"tslib": "^2.5.0"
 	},
 	"directories": {
 		"lib": "lib",

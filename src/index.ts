@@ -69,8 +69,10 @@ class DBClient {
 					return;
 				}
 
-				Object.assign(this.collectionMetadata[fileName], {
-					last_updated: currentUnixTime,
+				Object.assign(this.collectionMetadata, {
+					[fileName]: {
+						last_updated: currentUnixTime,
+					},
 				});
 
 				this.getCollection(fileName, true);
@@ -88,12 +90,10 @@ class DBClient {
 	};
 
 	private updateCollectionMetadata = (collectionName: string) => {
-		if (!this.collectionMetadata[collectionName]) {
-			return;
-		}
-
-		Object.assign(this.collectionMetadata[collectionName], {
-			last_updated: Math.floor(Date.now() / 1000),
+		Object.assign(this.collectionMetadata, {
+			[collectionName]: {
+				last_updated: Math.floor(Date.now() / 1000),
+			},
 		});
 	};
 
