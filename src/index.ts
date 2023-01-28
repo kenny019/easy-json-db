@@ -1,18 +1,25 @@
-import { fs, Ok, Err, Result, Option, Some, None, path, isDeepStrictEqual } from './utils';
+import { fs, Ok, Err, Result, Option, Some, None, path, isDeepStrictEqual, watch } from './utils';
 
 type document = Record<string, any>;
 type collectionStore = Record<string, document>;
 type lookupResult = string;
+type collectionMetadata = {
+	last_updated: number;
+};
+
+type collectionMetadataRecord = Record<string, collectionMetadata>;
 
 class DBClient {
 	private static _instance: DBClient;
 	databasePath: string;
 	collectionStore: collectionStore;
+	private collectionMetadata: collectionMetadataRecord;
 	writeQueue: Set<string>;
 
 	constructor(databasePath?: string, interval?: number) {
 		this.databasePath = '';
 		this.collectionStore = {};
+		this.collectionMetadata = {};
 		this.writeQueue = new Set();
 
 		databasePath = databasePath ? path.format(path.parse(databasePath)) : './db';
@@ -20,6 +27,7 @@ class DBClient {
 			this.databasePath = databasePath;
 
 			this.populateAllCollections();
+			this.initialiseDBWatch();
 
 			DBClient._instance = this;
 		}
@@ -27,6 +35,63 @@ class DBClient {
 		setTimeout(() => this.writeThread(interval), interval);
 		return DBClient._instance;
 	}
+
+	private initialiseDBWatch = () => {
+		const unixTimeNow = Math.floor(Date.now() / 1000);
+
+		this.collectionMetadata = Object.keys(this.collectionStore).reduce<collectionMetadataRecord>((acc, key) => {
+			Object.assign(acc, {
+				[key]: {
+					last_updated: unixTimeNow,
+				},
+			});
+			return acc;
+		}, {});
+
+		const dbWatcher = watch(this.databasePath, {
+			awaitWriteFinish: {
+				stabilityThreshold: 2000,
+				pollInterval: 100,
+			},
+		});
+
+		dbWatcher.on('change', (filePath, stats) => {
+			const fileChanged = path.parse(filePath).base;
+			const [fileName, fileExtension] = fileChanged.split('.');
+			const currentUnixTime = Math.floor(Date.now() / 1000);
+
+			if (fileExtension !== 'json' || !stats) {
+				return;
+			}
+
+			if (!this.collectionMetadata[fileName]) {
+				if (!this.collectionStore[fileName]) {
+					return;
+				}
+
+				Object.assign(this.collectionMetadata[fileName], {
+					last_updated: currentUnixTime,
+				});
+
+				this.getCollection(fileName, true);
+				return;
+			}
+
+			// means the file was likely manually edited
+			if (Math.floor(stats.mtimeMs / 1000) > this.collectionMetadata[fileName].last_updated) {
+				this.collectionMetadata[fileName].last_updated = currentUnixTime;
+
+				this.getCollection(fileName, true);
+				return;
+			}
+		});
+	};
+
+	private updateCollectionMetadata = (collectionName: string) => {
+		Object.assign(this.collectionMetadata[collectionName], {
+			last_updated: Math.floor(Date.now() / 1000),
+		});
+	};
 
 	private populateAllCollections = () => {
 		if (!this.collectionStore) this.collectionStore = {};
@@ -56,6 +121,7 @@ class DBClient {
 
 			if (collectionName) {
 				fs.writeFile(filePath, JSON.stringify(this.collectionStore[collectionName] || {}), (err) => {
+					this.updateCollectionMetadata(collectionName);
 					return res([true, {}]);
 				});
 			}
@@ -69,6 +135,8 @@ class DBClient {
 				`${this.databasePath}/${collectionName}.json`,
 				JSON.stringify(this.collectionStore[collectionName], null),
 			);
+
+			this.updateCollectionMetadata(collectionName);
 		});
 	};
 
@@ -128,11 +196,9 @@ class DBClient {
 		});
 
 		Promise.all(writeQueue).then(() => {
-			console.log('all done');
-			console.log(this.writeQueue);
+			this.writeQueue.forEach((collectionName) => {});
 			this.writeQueue.clear();
 			setTimeout(() => this.writeThread(interval), interval);
-			console.log('next call succesfully enqued');
 		});
 	};
 
@@ -215,8 +281,6 @@ class DBClient {
 		} else {
 			output = Object.assign(this.collectionStore[collectionName][foundKey.val], data);
 		}
-
-		console.log(output);
 
 		this.writeQueue.add(collectionName);
 		return new Ok(output);

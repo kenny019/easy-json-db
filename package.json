@@ -26,6 +26,7 @@
 		"lib/**/*"
 	],
 	"dependencies": {
+		"chokidar": "^3.5.3",
 		"ts-results": "^3.3.0"
 	}
 }

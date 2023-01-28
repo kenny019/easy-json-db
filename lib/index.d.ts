@@ -5,8 +5,11 @@ declare class DBClient {
     private static _instance;
     databasePath: string;
     collectionStore: collectionStore;
+    private collectionMetadata;
     writeQueue: Set<string>;
     constructor(databasePath?: string, interval?: number);
+    private initialiseDBWatch;
+    private updateCollectionMetadata;
     private populateAllCollections;
     private writeFileStore;
     private writeAllFileStore;
