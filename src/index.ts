@@ -88,6 +88,10 @@ class DBClient {
 	};
 
 	private updateCollectionMetadata = (collectionName: string) => {
+		if (!this.collectionMetadata[collectionName]) {
+			return;
+		}
+
 		Object.assign(this.collectionMetadata[collectionName], {
 			last_updated: Math.floor(Date.now() / 1000),
 		});
