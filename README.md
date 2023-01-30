@@ -28,7 +28,7 @@ npm install easy-discord-db
 
 Create a database, insert and read an object
 
-```
+```js
 const DBClient = require('easy-json-db');
 
 const db = new DBClient();
