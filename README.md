@@ -4,6 +4,8 @@
 
 Simple to use JSON file system meant for discord bots. It was designed and built for small and prototype applications.
 
+[Typedocs](https://kenny019.github.io/easy-json-db/)
+
 # Breakdown
 
 ### Features
