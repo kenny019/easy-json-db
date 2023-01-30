@@ -23,7 +23,7 @@ Simple to use JSON file system meant for discord bots. It was designed and built
 Installation
 
 ```
-npm install easy-discord-db
+npm install easy-json-db
 ```
 
 Create a database, insert and read an object
