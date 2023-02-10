@@ -245,6 +245,10 @@ class DBClient {
 				);
 			}
 
+			if (!foundKey.val) {
+				return None;
+			}
+
 			return Some(this.collectionStore[collectionName][foundKey.val]);
 		}
 
